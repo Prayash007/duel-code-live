@@ -2,50 +2,34 @@ import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
-import { DuelEditor } from '../components/arena/DuelEditor';
+import {DuelEditor} from '../components/arena/DuelEditor';
 import VideoFeed from '../components/arena/VideoFeed';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import type { Database } from '@/integrations/supabase/types';
 
 type Duel = Database['public']['Tables']['duels']['Row'];
-type Problem = Database['public']['Tables']['problems']['Row'];
 
 const Arena: React.FC = () => {
   const { duelId } = useParams<{ duelId: string }>();
   const { user } = useAuth();
   const [duel, setDuel] = useState<Duel | null>(null);
-  const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
 
-  // Fetch duel and associated problems
+  // Fetch duel info
   useEffect(() => {
-    const fetchDuelData = async () => {
+    const fetchDuel = async () => {
       setLoading(true);
-      
-      // Fetch duel
-      const { data: duelData } = await supabase
+      const { data } = await supabase
         .from('duels')
         .select('*')
         .eq('id', duelId)
         .single();
-
-      // Fetch problems if duel exists
-      if (duelData?.problem_ids) {
-        const { data: problemsData } = await supabase
-          .from('problems')
-          .select('*')
-          .in('id', duelData.problem_ids);
-        
-        setProblems(problemsData as Problem[] || []);
-      }
-
-      setDuel(duelData);
+      setDuel(data);
       setLoading(false);
     };
-
-    if (duelId) fetchDuelData();
+    if (duelId) fetchDuel();
   }, [duelId]);
 
   // Join as player2 if slot is open and status is 'waiting'
@@ -56,16 +40,12 @@ const Arena: React.FC = () => {
       .from('duels')
       .update({ player2_id: user.id, status: 'active' })
       .eq('id', duel.id);
-
+    setJoining(false);
     if (!error) {
-      const { data } = await supabase
-        .from('duels')
-        .select('*')
-        .eq('id', duel.id)
-        .single();
+      // Refresh duel info
+      const { data } = await supabase.from('duels').select('*').eq('id', duel.id).single();
       setDuel(data);
     }
-    setJoining(false);
   };
 
   if (loading) {
@@ -85,8 +65,8 @@ const Arena: React.FC = () => {
   }
 
   // Determine user role
-  const isPlayer1 = user?.id === duel.player1_id;
-  const isPlayer2 = user?.id === duel.player2_id;
+  const isPlayer1 = user && duel.player1_id === user.id;
+  const isPlayer2 = user && duel.player2_id === user.id;
   const isParticipant = isPlayer1 || isPlayer2;
   const isSpectator = duel.is_public && !isParticipant && !!duel.player2_id;
 
@@ -111,65 +91,32 @@ const Arena: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
           <div>
             <VideoFeed participantId={duel.player1_id} />
-            <DuelEditor 
-              duelId={duel.id} 
-              userId={duel.player1_id} 
-              problem={problems[0]} 
-              isSpectator={true} 
-            />
+            <DuelEditor duelId={duel.id} userId={duel.player1_id} isSpectator />
           </div>
           <div>
             <VideoFeed participantId={duel.player2_id!} />
-            <DuelEditor 
-              duelId={duel.id} 
-              userId={duel.player2_id!} 
-              problem={problems[0]} 
-              isSpectator={true} 
-            />
+            <DuelEditor duelId={duel.id} userId={duel.player2_id!} isSpectator />
           </div>
         </div>
       </Layout>
     );
   }
 
-  // Participant view
+  // Participant view (only see own code/video)
   const myId = user?.id;
   return (
     <Layout>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-4rem)] p-4">
-        {/* Left Side - Problem Description */}
-        <div className="bg-card rounded-lg p-6 overflow-y-auto shadow-lg">
-          {problems[0] && (
-            <>
-              <h1 className="text-2xl font-bold mb-4">{problems[0].title}</h1>
-              <div className="prose prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap text-muted-foreground">
-                  {problems[0].description}
-                </pre>
-              </div>
-            </>
-          )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
+        <div>
+          <VideoFeed participantId={myId!} />
+          <DuelEditor duelId={duel.id} userId={myId!} isSpectator = "false" />
         </div>
-
-        {/* Right Side - Editor & Status */}
-        <div className="flex flex-col gap-6 h-full">
-          <div className="flex-1 flex flex-col border rounded-lg shadow-md bg-muted overflow-hidden">
-            <VideoFeed participantId={myId!} />
-            <DuelEditor 
-              duelId={duel.id} 
-              userId={myId!} 
-              problem={problems[0]} 
-              isSpectator={false} 
-            />
-          </div>
-          
-          <div className="bg-muted rounded-lg p-4 flex items-center justify-center">
-            <span className="text-muted-foreground">
-              {isPlayer1 && !duel.player2_id
-                ? 'Waiting for opponent to join...'
-                : `Solving problem 1 of ${problems.length}`}
-            </span>
-          </div>
+        <div className="flex items-center justify-center bg-muted rounded-lg h-full">
+          <span className="text-muted-foreground">
+            {isPlayer1 && !duel.player2_id
+              ? 'Waiting for opponent to join...'
+              : 'Duel in progress!'}
+          </span>
         </div>
       </div>
     </Layout>
