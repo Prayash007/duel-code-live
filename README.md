@@ -31,7 +31,7 @@ Ensure you have **Node.js** and **npm** installed on your system. You can instal
 
 ```sh
 # 1. Clone the repository
-git clone <YOUR_GIT_REPO_URL>
+git clone https://github.com/Prayash007/duel-code-live.git
 
 # 2. Navigate into the project directory
 cd codeduels
