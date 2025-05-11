@@ -109,7 +109,7 @@ const Challenges = () => {
                       <Swords className="h-4 w-4" />
                       Duel (Public)
                     </Button>
-                    <Link to={`/challenges/${challenge.id}`}>
+                    <Link to={`/arena/${challenge.id}`}>
                       <Button variant="outline" size="sm">
                         <ArrowRight className="h-4 w-4" />
                       </Button>
