@@ -109,7 +109,7 @@ const Arena: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
         <div>
           <VideoFeed participantId={myId!} />
-          <DuelEditor duelId={duel.id} userId={myId!} isSpectator = "false" />
+          <DuelEditor duelId={duel.id} userId={myId!} isSpectator={false} />
         </div>
         <div className="flex items-center justify-center bg-muted rounded-lg h-full">
           <span className="text-muted-foreground">
