@@ -70,7 +70,7 @@ export const DuelEditor = ({ duelId, userId, isSpectator }) => {
   };
 
   const handleSubmit = async () => {
-    if (!isSpectator) return;
+    if (isSpectator) return;
     setIsSubmitting(true);
     setOutput('Running...');
     try {
