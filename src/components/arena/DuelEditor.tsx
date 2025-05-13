@@ -3,14 +3,19 @@ import Editor from '@monaco-editor/react';
 import { supabase } from '@/integrations/supabase/client';
 import { executeCode } from '../services/codeExecution';
 
+const LANGUAGES = {
+  python: { name: 'Python', id: 71, defaultCode: 'print("Hello from Python")' },
+  cpp: { name: 'C++', id: 54, defaultCode: '#include<iostream>\nusing namespace std;\nint main() {\n  cout << "Hello from C++";\n  return 0;\n}' },
+  java: { name: 'Java', id: 62, defaultCode: 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hello from Java");\n  }\n}' },
+};
+
 export const DuelEditor = ({ duelId, userId, isSpectator }) => {
-  const [code, setCode] = useState('');
+  const [language, setLanguage] = useState('python');
+  const [code, setCode] = useState(LANGUAGES['python'].defaultCode);
   const [status, setStatus] = useState('Connecting...');
   const [isSynced, setIsSynced] = useState(true);
   const [output, setOutput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const LANGUAGE_ID = 71; // Python (Judge0 ID)
 
   useEffect(() => {
     const channel = supabase.channel(`duel-${duelId}`, {
@@ -25,6 +30,7 @@ export const DuelEditor = ({ duelId, userId, isSpectator }) => {
       .on('broadcast', { event: 'code' }, ({ payload }) => {
         if (payload.userId !== userId) {
           setCode(payload.code);
+          setLanguage(payload.language);
           setIsSynced(true);
         }
       })
@@ -37,13 +43,28 @@ export const DuelEditor = ({ duelId, userId, isSpectator }) => {
   }, [duelId, userId]);
 
   const handleCodeChange = (value) => {
-    if (isSpectator && value !== null) {
-      setCode(value);
-      setIsSynced(false);
+    if (value === null) return;
+    setCode(value);
+    setIsSynced(false);
+    if (isSpectator) {
       supabase.channel(`duel-${duelId}`).send({
         type: 'broadcast',
         event: 'code',
-        payload: { code: value, userId }
+        payload: { code: value, language, userId }
+      });
+    }
+  };
+
+  const handleLanguageChange = (e) => {
+    const newLang = e.target.value;
+    setLanguage(newLang);
+    const newCode = LANGUAGES[newLang].defaultCode;
+    setCode(newCode);
+    if (isSpectator) {
+      supabase.channel(`duel-${duelId}`).send({
+        type: 'broadcast',
+        event: 'code',
+        payload: { code: newCode, language: newLang, userId }
       });
     }
   };
@@ -53,10 +74,10 @@ export const DuelEditor = ({ duelId, userId, isSpectator }) => {
     setIsSubmitting(true);
     setOutput('Running...');
     try {
-      const submission = await executeCode(code, LANGUAGE_ID);
+      const languageId = LANGUAGES[language].id;
+      const submission = await executeCode(code, languageId);
       const { token } = submission;
 
-      // Poll for result
       let result = null;
       for (let i = 0; i < 10; i++) {
         const res = await fetch(`https://judge0-ce.p.rapidapi.com/submissions/${token}?base64_encoded=false`, {
@@ -88,7 +109,21 @@ export const DuelEditor = ({ duelId, userId, isSpectator }) => {
   return (
     <div className="flex flex-col h-full border rounded-lg shadow-lg overflow-hidden">
       <div className="bg-muted px-4 py-2 text-sm font-medium text-muted-foreground flex justify-between items-center">
-        <span>{isSpectator ? 'Spectator View' : 'Live Coding Duel'}</span>
+        <div className="flex gap-2 items-center">
+          <span>{isSpectator ? 'Spectator View' : 'Live Coding Duel'}</span>
+          <select
+            value={language}
+            onChange={handleLanguageChange}
+            disabled={isSpectator}
+            className="ml-2 px-2 py-1 text-sm bg-background border rounded-md"
+          >
+            {Object.entries(LANGUAGES).map(([key, lang]) => (
+              <option key={key} value={key}>
+                {lang.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <span className={`text-xs ${isSynced ? 'text-green-500' : 'text-yellow-500'}`}>
           {isSynced ? 'Synced' : 'Typing...'}
         </span>
@@ -97,12 +132,12 @@ export const DuelEditor = ({ duelId, userId, isSpectator }) => {
       <div className="flex-grow">
         <Editor
           height="70vh"
-          language="python"
+          language={language === 'cpp' ? 'cpp' : language}
           theme="vs-dark"
           value={code}
           onChange={handleCodeChange}
           options={{
-            readOnly: isSpectator,
+            readOnly: !isSpectator,
             fontSize: 14,
             minimap: { enabled: false },
             lineNumbers: 'on',
