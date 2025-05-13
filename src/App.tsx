@@ -8,6 +8,7 @@ import Arena from "./pages/Arena";
 import Challenges from "./pages/Challenges";
 import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
+import CreateChallenge from "./pages/CreateChallenge";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/arena/:duelId" element={<Arena />} /> {/* <-- Add this line */}
           <Route path="/challenges" element={<Challenges />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/challenges/new" element={<CreateChallenge />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
